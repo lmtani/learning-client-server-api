@@ -59,7 +59,6 @@ func main() {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		return
 	})
 
 	fmt.Println("Server is running on http://localhost:8080")

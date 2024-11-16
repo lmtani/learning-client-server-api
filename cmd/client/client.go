@@ -3,10 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/lmtani/learning-client-server-api/internal/entities"
 	"io"
 	"net/http"
 	"os"
+
+	"github.com/lmtani/learning-client-server-api/internal/entities"
 )
 
 const ServerResourceRoute = "http://localhost:8080/cotacao"

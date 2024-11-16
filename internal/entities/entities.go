@@ -1,9 +1,5 @@
 package entities
 
-type Cotacao struct {
-	Bid string `json:"bid"`
-}
-
 // CurrencyExchange represents the structure of the exchange rate data
 type CurrencyExchange struct {
 	UsdBrl UsdBrl `json:"USDBRL"`
@@ -22,4 +18,8 @@ type UsdBrl struct {
 	Ask        string `json:"ask"`
 	Timestamp  string `json:"timestamp"`
 	CreateDate string `json:"create_date"`
+}
+
+type Cotacao struct {
+	Bid string `json:"bid"`
 }

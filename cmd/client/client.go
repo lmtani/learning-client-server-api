@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/lmtani/learning-client-server-api/internal/entities"
 )
@@ -13,9 +16,22 @@ import (
 const ServerResourceRoute = "http://localhost:8080/cotacao"
 
 func main() {
-	resp, err := http.Get(ServerResourceRoute)
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ServerResourceRoute, nil)
 	if err != nil {
-		panic(err)
+		fmt.Println("Error creating request:", err)
+		return
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			fmt.Println("Request to server timed out")
+			return
+		}
+		fmt.Println(err)
+		return
 	}
 
 	defer resp.Body.Close()
@@ -28,7 +44,7 @@ func main() {
 
 	// check status code
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("Error requesting USD-BRL quote:", string(body))
+		fmt.Println(string(body))
 		return
 	}
 

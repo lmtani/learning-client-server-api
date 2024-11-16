@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/lmtani/learning-client-server-api/internal/entities"
 )
@@ -33,9 +36,24 @@ type UsdBrl struct {
 
 func main() {
 	http.HandleFunc("/cotacao", func(w http.ResponseWriter, r *http.Request) {
-		resp, err := http.Get(CotacaoRoute)
+		ctx, cancel := context.WithTimeout(r.Context(), 200*time.Millisecond)
+		defer cancel()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, CotacaoRoute, nil)
 		if err != nil {
-			http.Error(w, "Error getting USD-BRL quote", http.StatusInternalServerError)
+			http.Error(w, "Error creating request", http.StatusInternalServerError)
+			return
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				http.Error(w, "Request timeout", http.StatusRequestTimeout)
+				return
+			}
+
+			http.Error(w, "Error requesting USD-BRL quote", http.StatusInternalServerError)
 			return
 		}
 
@@ -49,7 +67,7 @@ func main() {
 
 		var exchange CurrencyExchange
 		if err := json.Unmarshal(data, &exchange); err != nil {
-			fmt.Println("Error unmarshalling JSON:", err)
+			http.Error(w, "Error unmarshalling JSON", http.StatusInternalServerError)
 			return
 		}
 

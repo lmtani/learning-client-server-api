@@ -26,6 +26,12 @@ func main() {
 		return
 	}
 
+	// check status code
+	if resp.StatusCode != http.StatusOK {
+		fmt.Println("Error requesting USD-BRL quote:", string(body))
+		return
+	}
+
 	var c entities.Cotacao
 	err = json.Unmarshal(body, &c)
 	if err != nil {

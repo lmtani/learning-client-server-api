@@ -60,11 +60,14 @@ type Server struct {
 func (s *Server) HandleCotacao(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	logger := &RequestLogger{StartTime: startTime, RequestId: fmt.Sprintf("%x", startTime.UnixNano())}
-	// create a short hash to identify request
+
 	logger.Log("Request received")
 	ctx, cancel := context.WithTimeout(r.Context(), ApiCotacaoTimeout)
 	defer cancel()
+	// Queria conseguir diferenciar o cancel da requisição do cancel lançado pelo defer
+	// Dessa forma saberia qndo Client cancelou ou se foi o Server
 
+	logger.Log("Requesting quote")
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, CotacaoRoute, nil)
 	if err != nil {
 		msg := fmt.Sprintf("Error creating request: %s", err)
@@ -77,7 +80,7 @@ func (s *Server) HandleCotacao(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			msg := fmt.Sprintf("Request to API timed out after %s", ApiCotacaoTimeout)
+			msg := fmt.Sprintf("Request to '%s' timed out after %s", CotacaoRoute, ApiCotacaoTimeout)
 			logger.Log(msg)
 			http.Error(w, msg, http.StatusRequestTimeout)
 			return
@@ -86,7 +89,7 @@ func (s *Server) HandleCotacao(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error requesting USD-BRL quote", http.StatusInternalServerError)
 		return
 	}
-
+	logger.Log("Quote received")
 	defer resp.Body.Close()
 
 	data, err := io.ReadAll(resp.Body)
@@ -104,12 +107,14 @@ func (s *Server) HandleCotacao(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
+	logger.Log("Quote unmarshalled")
 
 	if err := database.AddQuote(s.Database, &exchange.UsdBrl, DatabaseTimeout); err != nil {
 		logger.Log(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	logger.Log("Quote saved to database")
 
 	if err := json.NewEncoder(w).Encode(entities.Cotacao{Bid: exchange.UsdBrl.Bid}); err != nil {
 		msg := fmt.Sprintf("Error encoding exchange data: %s", err)
@@ -119,7 +124,7 @@ func (s *Server) HandleCotacao(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	logger.Log("Request handled")
+	logger.Log("Request completed")
 }
 
 type RequestLogger struct {

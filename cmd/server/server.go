@@ -18,7 +18,7 @@ import (
 const (
 	CotacaoRoute      = "https://economia.awesomeapi.com.br/json/last/USD-BRL"
 	ApiCotacaoTimeout = 200 * time.Millisecond
-	DatabaseTimeout   = 1 * time.Nanosecond
+	DatabaseTimeout   = 10 * time.Millisecond
 	SqliteDbPath      = "./quotes.db"
 	ServerPort        = ":8080"
 )
@@ -58,14 +58,17 @@ type Server struct {
 }
 
 func (s *Server) HandleCotacao(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Request received")
+	startTime := time.Now()
+	logger := &RequestLogger{StartTime: startTime, RequestId: fmt.Sprintf("%x", startTime.UnixNano())}
+	// create a short hash to identify request
+	logger.Log("Request received")
 	ctx, cancel := context.WithTimeout(r.Context(), ApiCotacaoTimeout)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, CotacaoRoute, nil)
 	if err != nil {
 		msg := fmt.Sprintf("Error creating request: %s", err)
-		fmt.Println(msg)
+		logger.Log(msg)
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
@@ -75,7 +78,7 @@ func (s *Server) HandleCotacao(w http.ResponseWriter, r *http.Request) {
 
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			msg := fmt.Sprintf("Request to API timed out after %s", ApiCotacaoTimeout)
-			fmt.Println(msg)
+			logger.Log(msg)
 			http.Error(w, msg, http.StatusRequestTimeout)
 			return
 		}
@@ -89,7 +92,7 @@ func (s *Server) HandleCotacao(w http.ResponseWriter, r *http.Request) {
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		msg := fmt.Sprintf("Error reading response body: %s", err)
-		fmt.Println(msg)
+		logger.Log(msg)
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
@@ -97,24 +100,34 @@ func (s *Server) HandleCotacao(w http.ResponseWriter, r *http.Request) {
 	var exchange entities.CurrencyExchange
 	if err := json.Unmarshal(data, &exchange); err != nil {
 		msg := fmt.Sprintf("Error unmarshalling JSON: %s", err)
-		fmt.Println(msg)
+		logger.Log(msg)
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 
 	if err := database.AddQuote(s.Database, &exchange.UsdBrl, DatabaseTimeout); err != nil {
-		fmt.Println(err.Error())
+		logger.Log(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if err := json.NewEncoder(w).Encode(entities.Cotacao{Bid: exchange.UsdBrl.Bid}); err != nil {
 		msg := fmt.Sprintf("Error encoding exchange data: %s", err)
-		fmt.Println(msg)
+		logger.Log(msg)
 		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Println("Request handled")
+	logger.Log("Request handled")
+}
+
+type RequestLogger struct {
+	StartTime time.Time
+	RequestId string
+}
+
+func (l *RequestLogger) Log(msg string) {
+	ts := time.Since(l.StartTime).Round(time.Millisecond)
+	fmt.Printf("[%s] %s %s\n", l.RequestId, ts, msg)
 }

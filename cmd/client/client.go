@@ -13,10 +13,13 @@ import (
 	"github.com/lmtani/learning-client-server-api/internal/entities"
 )
 
-const ServerResourceRoute = "http://localhost:8080/cotacao"
+const (
+	ServerResourceRoute = "http://localhost:8080/cotacao"
+	ServerTimeout       = 100 * time.Millisecond
+)
 
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), ServerTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ServerResourceRoute, nil)
 	if err != nil {
@@ -42,7 +45,6 @@ func main() {
 		return
 	}
 
-	// check status code
 	if resp.StatusCode != http.StatusOK {
 		fmt.Println(string(body))
 		return

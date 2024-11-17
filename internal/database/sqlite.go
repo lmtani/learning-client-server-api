@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/lmtani/learning-client-server-api/internal/entities"
@@ -66,7 +67,8 @@ func AddQuote(db *sql.DB, c *entities.UsdBrl, timeout time.Duration) error {
 	)
 	if err != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return context.DeadlineExceeded
+			msg := fmt.Sprintf("Database operation timed out after %s", timeout)
+			return errors.New(msg)
 		}
 
 		return err

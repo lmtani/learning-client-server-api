@@ -15,7 +15,7 @@ import (
 
 const (
 	ServerResourceRoute = "http://localhost:8080/cotacao"
-	ServerTimeout       = 100 * time.Millisecond
+	ServerTimeout       = 300 * time.Millisecond
 )
 
 func main() {
